@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MUNBOT — Position Paper Generator</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Georgia', serif;
+      background: #f5f0e8;
+      color: #2c2c2c;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+    }
+
+    h1 {
+      font-size: 2.2rem;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.3rem;
+      color: #1a1a2e;
+    }
+
+    .subtitle {
+      font-size: 0.95rem;
+      color: #666;
+      margin-bottom: 2rem;
+    }
+
+    form {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 2rem;
+      width: 100%;
+      max-width: 520px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    }
+
+    label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.3rem;
+      color: #444;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 0.55rem 0.75rem;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      font-size: 1rem;
+      font-family: inherit;
+      margin-bottom: 1.1rem;
+      background: #fafafa;
+      transition: border-color 0.2s;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: #4a90d9;
+      background: #fff;
+    }
+
+    .optional-note {
+      font-size: 0.78rem;
+      color: #999;
+      font-weight: normal;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+
+    button[type="submit"] {
+      width: 100%;
+      padding: 0.75rem;
+      background: #1a1a2e;
+      color: #fff;
+      font-size: 1rem;
+      font-family: inherit;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      letter-spacing: 0.03em;
+      transition: background 0.2s;
+    }
+
+    button[type="submit"]:hover { background: #2d2d50; }
+    button[type="submit"]:disabled { background: #888; cursor: not-allowed; }
+
+    #status-panel {
+      margin-top: 1.8rem;
+      width: 100%;
+      max-width: 520px;
+    }
+
+    #status-box {
+      background: #1a1a2e;
+      color: #a8e6a3;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85rem;
+      padding: 1rem;
+      border-radius: 6px;
+      min-height: 80px;
+      white-space: pre-wrap;
+      display: none;
+    }
+
+    #download-section {
+      margin-top: 1.2rem;
+      text-align: center;
+      display: none;
+    }
+
+    #download-btn {
+      display: inline-block;
+      background: #2e7d32;
+      color: #fff;
+      padding: 0.65rem 1.8rem;
+      border-radius: 5px;
+      text-decoration: none;
+      font-size: 1rem;
+      font-family: inherit;
+      letter-spacing: 0.02em;
+      transition: background 0.2s;
+    }
+
+    #download-btn:hover { background: #388e3c; }
+  </style>
+</head>
+<body>
+
+  <h1>MUNBOT</h1>
+  <p class="subtitle">MUN Position Paper Generator</p>
+
+  <form id="gen-form">
+    <label for="topic">Topic</label>
+    <input type="text" id="topic" name="topic" placeholder="e.g. The Sudan Refugee Crisis" required />
+
+    <label for="country">Country</label>
+    <input type="text" id="country" name="country" placeholder="e.g. France" required />
+
+    <label for="committee">
+      Committee <span class="optional-note">(optional — LLM infers if blank)</span>
+    </label>
+    <input type="text" id="committee" name="committee" placeholder="e.g. UNHCR" />
+
+    <label for="pages">Pages</label>
+    <select id="pages" name="pages">
+      <option value="1">1 page</option>
+      <option value="2" selected>2 pages</option>
+      <option value="3">3 pages</option>
+      <option value="4">4 pages</option>
+      <option value="5">5 pages</option>
+    </select>
+
+    <button type="submit" id="submit-btn">Generate Position Paper</button>
+  </form>
+
+  <div id="status-panel">
+    <div id="status-box"></div>
+    <div id="download-section">
+      <a id="download-btn" href="#">Download .docx</a>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('gen-form');
+    const submitBtn = document.getElementById('submit-btn');
+    const statusBox = document.getElementById('status-box');
+    const downloadSection = document.getElementById('download-section');
+    const downloadBtn = document.getElementById('download-btn');
+
+    let evtSource = null;
+
+    function appendStatus(msg) {
+      statusBox.style.display = 'block';
+      statusBox.textContent += msg + '\n';
+      statusBox.scrollTop = statusBox.scrollHeight;
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      // Reset UI
+      statusBox.textContent = '';
+      statusBox.style.display = 'none';
+      downloadSection.style.display = 'none';
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Generating…';
+
+      if (evtSource) { evtSource.close(); evtSource = null; }
+
+      const payload = {
+        topic: document.getElementById('topic').value.trim(),
+        country: document.getElementById('country').value.trim(),
+        committee: document.getElementById('committee').value.trim(),
+        pages: parseInt(document.getElementById('pages').value),
+      };
+
+      let jobId;
+      try {
+        const res = await fetch('/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        jobId = data.job_id;
+      } catch (err) {
+        appendStatus('Error: ' + err.message);
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Generate Position Paper';
+        return;
+      }
+
+      evtSource = new EventSource(`/progress/${jobId}`);
+
+      evtSource.onmessage = (event) => {
+        const msg = event.data;
+
+        if (msg.startsWith('done: ')) {
+          const url = msg.slice('done: '.length);
+          appendStatus('Done! Your paper is ready.');
+          downloadBtn.href = url;
+          downloadSection.style.display = 'block';
+          evtSource.close();
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Generate Position Paper';
+        } else if (msg.startsWith('error: ')) {
+          appendStatus('ERROR: ' + msg.slice('error: '.length));
+          evtSource.close();
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Generate Position Paper';
+        } else {
+          appendStatus(msg);
+        }
+      };
+
+      evtSource.onerror = () => {
+        appendStatus('Connection lost. Check server.');
+        evtSource.close();
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Generate Position Paper';
+      };
+    });
+  </script>
+
+</body>
+</html>

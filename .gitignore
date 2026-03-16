@@ -1,0 +1,8 @@
+generated/
+test_*.docx
+position-papers/*.txt
+position-papers/*.docx
+__pycache__/
+*.pyc
+.env
+.claude/
