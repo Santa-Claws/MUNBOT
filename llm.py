@@ -1,6 +1,9 @@
 """
 Ollama client, prompt construction, and word-count enforcement.
-Section-by-section generation for reliable formatting with small LLMs.
+
+Two-model architecture:
+  GENERATION_MODEL  — writes the actual content (fast, small)
+  CORRECTION_MODEL  — dedicated length-enforcement pass (even smaller/faster)
 """
 
 import os
@@ -12,19 +15,30 @@ import ollama
 from mun_guidelines import get_guidelines
 from research import format_research_block
 
-OLLAMA_MODEL = "llama3.1:8b"
-OLLAMA_BASE_URL = "http://localhost:11434"
+# ---------------------------------------------------------------------------
+# Model config — swap here for deployment
+# ---------------------------------------------------------------------------
+GENERATION_MODEL  = "llama3.2:3b"   # primary content writer
+CORRECTION_MODEL  = "llama3.2:1b"   # length enforcer only
+OLLAMA_BASE_URL   = "http://localhost:11434"
 
-PAPERS_DIR = os.path.join(os.path.dirname(__file__), "position-papers")
+# ---------------------------------------------------------------------------
+# Calibration
+# ---------------------------------------------------------------------------
+PAPERS_DIR       = os.path.join(os.path.dirname(__file__), "position-papers")
 CHARS_PER_EXAMPLE = 2000
 
-# Calibrated to France corpus paper: 783 body words / 3 pages = 261 w/page.
-# Section split: Background 28%, UN Involvement 20%, Policy+Solutions 52%
-WORDS_PER_PAGE = 261
-SECTION_WEIGHTS = [0.28, 0.20, 0.52]   # must sum to 1.0
+# 261 words/page calibrated from France corpus paper (783 body words / 3 pages)
+WORDS_PER_PAGE   = 261
+SECTION_WEIGHTS  = [0.28, 0.20, 0.52]   # Background / UN Involvement / Policy+Solutions
 
-TOLERANCE_LOW = 0.88
-TOLERANCE_HIGH = 1.12
+# Per-section tolerance before triggering correction pass
+SECTION_TOL_LOW  = 0.85
+SECTION_TOL_HIGH = 1.15
+
+# Final whole-paper tolerance after correction
+FINAL_TOL_LOW    = 0.92
+FINAL_TOL_HIGH   = 1.08
 
 
 # ---------------------------------------------------------------------------
@@ -60,63 +74,56 @@ def _select_examples(topic: str, country: str, n: int = 2) -> list[str]:
 # Word counting
 # ---------------------------------------------------------------------------
 
-def _count_body_words(text: str) -> int:
-    lower = text.lower()
-    idx = lower.find("works cited")
-    body = text[:idx] if idx != -1 else text
-    return len(body.split())
-
-
 def _count_words(text: str) -> int:
     return len(text.split())
 
 
+def _count_body_words(text: str) -> int:
+    """Words before 'Works Cited'."""
+    lower = text.lower()
+    idx = lower.find("works cited")
+    return _count_words(text[:idx] if idx != -1 else text)
+
+
 # ---------------------------------------------------------------------------
-# Ollama call
+# Ollama helpers
 # ---------------------------------------------------------------------------
 
-def _chat(messages: list[dict]) -> str:
+def _chat(model: str, messages: list[dict]) -> str:
     client = ollama.Client(host=OLLAMA_BASE_URL)
-    response = client.chat(model=OLLAMA_MODEL, messages=messages)
-    return response.message.content
+    return client.chat(model=model, messages=messages).message.content
 
 
-# ---------------------------------------------------------------------------
-# Section generation
-# ---------------------------------------------------------------------------
+def _gen(messages: list[dict]) -> str:
+    return _chat(GENERATION_MODEL, messages)
+
+
+def _fix(messages: list[dict]) -> str:
+    return _chat(CORRECTION_MODEL, messages)
+
 
 # ---------------------------------------------------------------------------
 # Text cleanup
 # ---------------------------------------------------------------------------
 
-_MAIN_SECTION_RE = re.compile(r'^[123]\.\s+(Background|UN Involvement|Country Policy)', re.IGNORECASE)
-_SUBHEADER_RE = re.compile(r'^[A-Z]\.\s+[A-Z]')           # "A. Title"
-_NUM_SUBHEADER_RE = re.compile(r'^\d+\.\s+[A-Z][a-z]')    # "2. Some subtitle" (not main sections)
+_MAIN_SECTION_RE  = re.compile(r'^[123]\.\s+(Background|UN Involvement|Country Policy)', re.IGNORECASE)
+_SUBHEADER_RE     = re.compile(r'^[A-Z]\.\s+[A-Z]')
+_NUM_SUBHEADER_RE = re.compile(r'^\d+\.\s+[A-Z][a-z]')
 
 
 def _strip_markdown(text: str) -> str:
-    """Remove markdown and structural noise from LLM output."""
-    # Remove bold/italic markers
     text = re.sub(r'\*{1,3}([^*\n]+)\*{1,3}', r'\1', text)
-    # Remove hash headers
     text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)
-
     lines = text.splitlines()
     cleaned = []
     for line in lines:
-        stripped = line.strip()
-
-        # Skip lettered sub-headers (A. Title, B. Title...)
-        if _SUBHEADER_RE.match(stripped):
+        s = line.strip()
+        if _SUBHEADER_RE.match(s):
             continue
-
-        # Skip numbered sub-headers that aren't the 3 main sections
-        if _NUM_SUBHEADER_RE.match(stripped) and not _MAIN_SECTION_RE.match(stripped):
+        if _NUM_SUBHEADER_RE.match(s) and not _MAIN_SECTION_RE.match(s):
             continue
-
-        # Convert bullet/list lines into prose appended to previous paragraph
-        if re.match(r'^[\*\-]\s+', stripped):
-            content = re.sub(r'^[\*\-]\s+', '', stripped)
+        if re.match(r'^[\*\-]\s+', s):
+            content = re.sub(r'^[\*\-]\s+', '', s)
             if cleaned and cleaned[-1].strip():
                 prev = cleaned[-1].rstrip()
                 sep = ', and ' if not prev.endswith('.') else ' Additionally, '
@@ -124,18 +131,41 @@ def _strip_markdown(text: str) -> str:
             else:
                 cleaned.append(content)
             continue
-
         cleaned.append(line)
-
     return '\n'.join(cleaned)
 
 
+def _ensure_header(text: str, section_title: str) -> str:
+    """Strip stray intro lines and guarantee the section header is line 1."""
+    lines = text.strip().splitlines()
+    if not lines:
+        return section_title
+    for i, line in enumerate(lines):
+        if re.match(r'^\d+\.', line.strip()):
+            lines = lines[i:]
+            break
+    if not re.match(r'^\d+\.', lines[0].strip()):
+        lines.insert(0, section_title)
+    return '\n'.join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Section definitions
+# ---------------------------------------------------------------------------
+
 SECTIONS = [
-    ("1. Background", "background history and global context of the issue"),
-    ("2. UN Involvement", "the UN's role, resolutions, and past international actions on this issue"),
-    ("3. Country Policy and Solutions", "the country's position, policies, and proposed solutions"),
+    ("1. Background",
+     "the historical background and global context of the issue"),
+    ("2. UN Involvement",
+     "the UN's role, key resolutions, and past international actions on this issue"),
+    ("3. Country Policy and Solutions",
+     "the country's official position, existing policies, and proposed solutions"),
 ]
 
+
+# ---------------------------------------------------------------------------
+# Generation model: write one section
+# ---------------------------------------------------------------------------
 
 def _generate_section(
     section_title: str,
@@ -147,133 +177,217 @@ def _generate_section(
     research_block: str,
     examples: list[str],
 ) -> str:
-    """Generate a single section and return its text (header + paragraphs)."""
-    guidelines = get_guidelines()
+    example_text = "".join(f"---EXAMPLE {i+1}---\n{ex}\n\n" for i, ex in enumerate(examples))
+    n_paragraphs = 2 if target_words < 180 else 3
 
-    example_text = ""
-    for i, ex in enumerate(examples, 1):
-        example_text += f"---EXAMPLE {i}---\n{ex}\n\n"
-
-    system = f"""You are an expert MUN delegate writing one section of a formal position paper.
-
-MUN STYLE EXAMPLES (match this tone and density exactly):
-{example_text}
-RULES:
-- Write ONLY the section titled "{section_title}" — nothing else
-- Start with the header "{section_title}" on its own line
-- Follow with {2 if target_words < 200 else 3}–4 dense prose paragraphs totaling ~{target_words} words
-- Formal, third-person, policy-focused language
-- No bullet points, no sub-headers, no markdown
-- Use facts from the research context below
-
-RESEARCH CONTEXT:
-{research_block}"""
-
-    user = (
-        f'Write the "{section_title}" section (~{target_words} words) for a position paper on:\n'
-        f"Country: {country}\n"
-        f"Committee: {committee}\n"
-        f"Topic: {topic}\n"
-        f"This section covers: {section_description}.\n"
-        f"Output ONLY the section header and paragraphs. No introduction, no other sections."
+    system = (
+        f"You are an expert MUN delegate writing one section of a formal position paper.\n\n"
+        f"STYLE EXAMPLES — match this tone exactly:\n{example_text}"
+        f"RULES:\n"
+        f"- Write ONLY the \"{section_title}\" section\n"
+        f"- First line must be exactly: {section_title}\n"
+        f"- Write {n_paragraphs}–4 dense prose paragraphs totaling ~{target_words} words\n"
+        f"- Formal third-person policy language. No markdown, no bullets, no sub-headers.\n\n"
+        f"RESEARCH CONTEXT:\n{research_block}"
     )
-
-    text = _chat([
-        {"role": "system", "content": system},
-        {"role": "user", "content": user},
-    ])
+    user = (
+        f'Write the "{section_title}" section (~{target_words} words).\n'
+        f"Country: {country} | Committee: {committee} | Topic: {topic}\n"
+        f"Coverage: {section_description}\n"
+        f"Output ONLY the section header and body paragraphs."
+    )
+    text = _gen([{"role": "system", "content": system}, {"role": "user", "content": user}])
     text = _strip_markdown(text)
+    return _ensure_header(text, section_title)
 
-    # Ensure the section header is present and clean
-    lines = text.strip().splitlines()
-    if not lines:
-        return f"{section_title}\n"
 
-    # Strip any stray intro lines before the header
-    for i, line in enumerate(lines):
-        if re.match(r"^\d+\.", line.strip()):
-            lines = lines[i:]
-            break
+# ---------------------------------------------------------------------------
+# Correction model: enforce word count on a section
+# ---------------------------------------------------------------------------
 
-    # If header is missing, prepend it
-    if not re.match(r"^\d+\.", lines[0].strip()):
-        lines.insert(0, section_title)
+def _correct_length(
+    section_text: str,
+    section_title: str,
+    target_words: int,
+) -> str:
+    """
+    Dedicated length-enforcement pass using the smaller CORRECTION_MODEL.
+    Prompt is intentionally minimal — just count and adjust.
+    """
+    actual = _count_words(section_text)
+    delta  = target_words - actual
+    action = f"ADD approximately {delta} words by elaborating on existing points" \
+             if delta > 0 else \
+             f"REMOVE approximately {-delta} words by condensing sentences"
 
-    return "\n".join(lines)
+    system = (
+        "You are a text editor. Your only job is to adjust the length of the provided "
+        "MUN position paper section to hit a word count target.\n"
+        "Rules:\n"
+        "- Keep the section header on line 1 unchanged\n"
+        "- Keep the same formal MUN tone and all factual content\n"
+        "- Do NOT add bullet points, sub-headers, or markdown\n"
+        "- Output ONLY the revised section text, nothing else"
+    )
+    user = (
+        f"Target: ~{target_words} words (currently {actual} words).\n"
+        f"Action: {action}.\n\n"
+        f"SECTION TO ADJUST:\n{section_text}"
+    )
+    text = _fix([{"role": "system", "content": system}, {"role": "user", "content": user}])
+    text = _strip_markdown(text)
+    return _ensure_header(text, section_title)
 
+
+# ---------------------------------------------------------------------------
+# Works Cited (generation model)
+# ---------------------------------------------------------------------------
 
 def _generate_works_cited(sources: list[dict]) -> str:
-    """
-    Generate a Works Cited section from the raw source dicts.
-    Falls back to a best-effort MLA format if the LLM fails.
-    """
     from datetime import date
     today = date.today().strftime("%d %b. %Y")
 
-    system = (
-        "You are a citation formatter. For each source provided, output exactly one "
-        "MLA 9th edition citation. Format: Publisher. \"Title.\" Website, Date, URL.\n"
-        "Output ONLY the header 'Works Cited' followed by one citation per line. "
-        "No numbering, no bullet points, no extra commentary."
+    sources_text = "".join(
+        f"{i}. Title: {s['title']}\n   URL: {s['url']}\n   Accessed: {today}\n\n"
+        for i, s in enumerate(sources[:10], 1)
     )
-
-    sources_text = ""
-    for i, s in enumerate(sources[:10], 1):
-        sources_text += f"{i}. Title: {s['title']}\n   URL: {s['url']}\n   Accessed: {today}\n\n"
-
-    user = f"Format these as MLA 9th edition Works Cited entries:\n\n{sources_text}"
-
-    text = _chat([
-        {"role": "system", "content": system},
-        {"role": "user", "content": user},
-    ])
+    system = (
+        "You are a citation formatter. Output ONLY 'Works Cited' as the header, "
+        "then one MLA 9th edition citation per source. "
+        "Format each as: Publisher. \"Title.\" Website, Date, URL.\n"
+        "No numbering, no bullets, no commentary."
+    )
+    user = f"Format as MLA 9th edition Works Cited:\n\n{sources_text}"
+    text = _gen([{"role": "system", "content": system}, {"role": "user", "content": user}])
     text = _strip_markdown(text)
-
     if not re.match(r"^works cited", text.strip(), re.IGNORECASE):
         text = "Works Cited\n" + text.strip()
     return text.strip()
 
 
 # ---------------------------------------------------------------------------
-# Word-count correction for a single section
+# Deterministic sentence trimmer (hard fallback for over-long text)
 # ---------------------------------------------------------------------------
 
-def _correct_section(
-    section_text: str,
-    section_title: str,
-    target_words: int,
-    topic: str,
-    country: str,
-    committee: str,
-    research_block: str,
-    examples: list[str],
-) -> str:
-    actual = _count_words(section_text)
-    direction = "expand" if actual < target_words else "trim"
-    guidelines = get_guidelines()
-    example_text = "".join(f"---EXAMPLE {i+1}---\n{ex}\n\n" for i, ex in enumerate(examples))
+def _trim_sentences(text: str, target: int) -> str:
+    """Remove sentences from the end of paragraphs until at/under target words."""
+    # Split into paragraphs, trim sentences from the longest one first
+    paras = [p for p in text.split('\n') if p.strip()]
+    while _count_words('\n'.join(paras)) > int(target * 1.03):
+        # Find the longest paragraph (skip the section header line)
+        longest_i = max(
+            (i for i, p in enumerate(paras) if not re.match(r'^\d+\.', p.strip())),
+            key=lambda i: _count_words(paras[i]),
+            default=None,
+        )
+        if longest_i is None:
+            break
+        sentences = re.split(r'(?<=[.!?])\s+', paras[longest_i].strip())
+        if len(sentences) <= 1:
+            break
+        sentences.pop()   # remove last sentence
+        paras[longest_i] = ' '.join(sentences)
+    return '\n'.join(paras)
 
-    system = f"""You are rewriting one section of an MUN position paper.
-MUN STYLE EXAMPLES:
-{example_text}
-RESEARCH CONTEXT:
-{research_block}"""
 
-    user = (
-        f'Rewrite this "{section_title}" section so it is ~{target_words} words '
-        f"(currently {actual} words). {direction.capitalize()} the content proportionally. "
-        f"Output ONLY the section header and paragraphs.\n\n"
-        f"CURRENT TEXT:\n{section_text}"
+# ---------------------------------------------------------------------------
+# Final whole-paper length correction (iterative, uses 3b model)
+# ---------------------------------------------------------------------------
+
+def _correct_paper_length(paper_text: str, target_total: int, emit) -> str:
+    """
+    Iterative final pass: up to 3 attempts with the generation model,
+    then deterministic sentence trimming as hard fallback.
+    """
+    lower  = paper_text.lower()
+    wc_idx = lower.find("works cited")
+    wc_part = paper_text[wc_idx:].strip() if wc_idx != -1 else ""
+
+    def _get_body():
+        lo = paper_text.lower()
+        ix = lo.find("works cited")
+        return paper_text[:ix].strip() if ix != -1 else paper_text.strip()
+
+    section_pattern = re.compile(
+        r'(\d+\. (?:Background|UN Involvement|Country Policy[^\n]*))',
+        re.IGNORECASE,
     )
-    text = _chat([
-        {"role": "system", "content": system},
-        {"role": "user", "content": user},
-    ])
-    return _strip_markdown(text).strip()
+
+    for attempt in range(3):
+        body   = _get_body()
+        actual = _count_words(body)
+        low    = int(target_total * FINAL_TOL_LOW)
+        high   = int(target_total * FINAL_TOL_HIGH)
+
+        if low <= actual <= high:
+            break   # within tolerance
+
+        # Find section spans
+        matches = list(section_pattern.finditer(body))
+        if not matches:
+            break
+
+        spans = []
+        for j, m in enumerate(matches):
+            s = m.start()
+            e = matches[j + 1].start() if j + 1 < len(matches) else len(body)
+            spans.append((s, e, m.group(1)))
+
+        # Over target → trim the biggest section
+        # Under target → expand the smallest section
+        over = actual > high
+        target_span = (
+            max(spans, key=lambda sp: _count_words(body[sp[0]:sp[1]]))
+            if over else
+            min(spans, key=lambda sp: _count_words(body[sp[0]:sp[1]]))
+        )
+        start, end, title = target_span
+        sec_text   = body[start:end].strip()
+        sec_actual = _count_words(sec_text)
+        sec_target = sec_actual + (target_total - actual)
+
+        emit(f"[4/5] Length pass {attempt+1} ({actual}→{target_total} words, "
+             f"{'trimming' if over else 'expanding'} '{title}')…")
+
+        # Use 3b generation model for better instruction following
+        action = (
+            f"SHORTEN by removing ~{actual - target_total} words total from this section"
+            if over else
+            f"EXPAND by adding ~{target_total - actual} words of relevant detail to this section"
+        )
+        system = (
+            "You are editing one section of an MUN position paper for length.\n"
+            "Rules:\n"
+            "- Keep the section header on line 1 unchanged\n"
+            "- Keep formal MUN tone; preserve all factual content when trimming\n"
+            "- No bullet points, no markdown\n"
+            "- Output ONLY the revised section, nothing else"
+        )
+        user = (
+            f"Target for this section: ~{sec_target} words (currently {sec_actual}).\n"
+            f"{action}.\n\nSECTION:\n{sec_text}"
+        )
+        fixed = _gen([{"role": "system", "content": system},
+                      {"role": "user", "content": user}])
+        fixed = _strip_markdown(fixed)
+        fixed = _ensure_header(fixed, title)
+
+        body_new = body[:start] + fixed + "\n" + body[end:]
+        paper_text = body_new.strip() + ("\n\n" + wc_part if wc_part else "")
+
+    # Hard fallback: if still over, deterministically trim sentences
+    body   = _get_body()
+    actual = _count_words(body)
+    if actual > int(target_total * FINAL_TOL_HIGH):
+        emit(f"[4/5] Hard trim ({actual}→{target_total} words)…")
+        trimmed = _trim_sentences(body, target_total)
+        paper_text = trimmed.strip() + ("\n\n" + wc_part if wc_part else "")
+
+    return paper_text
 
 
 # ---------------------------------------------------------------------------
-# Main generation entry point
+# Main entry point
 # ---------------------------------------------------------------------------
 
 def generate_paper(
@@ -289,51 +403,46 @@ def generate_paper(
             progress_cb(msg)
 
     committee_line = committee.strip() if committee.strip() else "United Nations General Assembly"
-    target_total = pages * WORDS_PER_PAGE
+    target_total   = pages * WORDS_PER_PAGE
 
-    # Step 2
     _emit("[2/5] Loading style examples from corpus…")
     examples = _select_examples(topic, country)
 
-    # Step 3
     _emit("[3/5] Building prompt…")
     research_block = format_research_block(sources)
 
-    # Step 4: generate each section
-    _emit("[4/5] Generating section 1/3: Background…")
     section_targets = [int(target_total * w) for w in SECTION_WEIGHTS]
+    sections        = []
+    labels          = ["Background", "UN Involvement", "Country Policy and Solutions"]
 
-    sections = []
-    section_labels = ["Background", "UN Involvement", "Country Policy and Solutions"]
     for i, (title, description) in enumerate(SECTIONS):
-        if i > 0:
-            _emit(f"[4/5] Generating section {i+1}/3: {section_labels[i]}…")
-        sec_text = _generate_section(
+        _emit(f"[4/5] Generating section {i+1}/3: {labels[i]}…")
+        sec = _generate_section(
             title, description, topic, country, committee_line,
             section_targets[i], research_block, examples,
         )
-        # Word-count check per section
-        sec_words = _count_words(sec_text)
-        low = int(section_targets[i] * TOLERANCE_LOW)
-        high = int(section_targets[i] * TOLERANCE_HIGH)
+
+        # Per-section length check → correction model
+        sec_words = _count_words(sec)
+        low  = int(section_targets[i] * SECTION_TOL_LOW)
+        high = int(section_targets[i] * SECTION_TOL_HIGH)
         if not (low <= sec_words <= high):
             _emit(f"[4/5] Correcting section {i+1} ({sec_words}→{section_targets[i]} words)…")
-            sec_text = _correct_section(
-                sec_text, title, section_targets[i],
-                topic, country, committee_line, research_block, examples,
-            )
-        sections.append(sec_text)
+            sec = _correct_length(sec, title, section_targets[i])
 
-    # Step 4e: Works Cited
+        sections.append(sec)
+
     _emit("[4/5] Generating Works Cited…")
     works_cited = _generate_works_cited(sources)
 
-    # Assemble
     paper_text = (
         f"{committee_line}\n{country}\n\n"
         + "\n\n".join(sections)
         + "\n\n"
         + works_cited
     )
+
+    # Final whole-paper length enforcement
+    paper_text = _correct_paper_length(paper_text, target_total, _emit)
 
     return paper_text
