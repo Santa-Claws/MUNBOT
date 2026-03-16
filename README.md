@@ -9,7 +9,7 @@ A web app that generates Model UN position papers using a local LLM (Ollama), re
 - **Local LLM** — runs entirely on your machine via Ollama (no API keys, no data sent to the cloud)
 - **Two-model architecture** — a fast generation model writes the content; a dedicated smaller model handles length correction
 - **Iterative word-count enforcement** — per-section correction, full-paper iterative passes, and a deterministic sentence trimmer as a hard fallback
-- **Accurate page lengths** — calibrated to 261 words/page (body only, Works Cited never counts); tested and passing for 1, 2, and 3 page outputs
+- **Accurate page lengths** — calibrated to 230 words/page from actual docx rendering (body only, Works Cited never counts); tested and passing for 1, 2, and 3 page outputs
 - **Proper `.docx` export** — Times New Roman 12pt, double-spaced, 1-inch margins, hanging indent on Works Cited
 
 ## Requirements
@@ -57,7 +57,7 @@ Generated papers follow standard MUN formatting:
 
 ## How Word Count Works
 
-The target is **261 words per page** (body only), calibrated against real position papers. Length is enforced in three layers:
+The target is **230 words per page** (body only), calibrated empirically from actual `.docx` rendering in LibreOffice/Word — not from raw word counts, which overestimate capacity by ~12% due to header lines and paragraph-break waste. Length is enforced in three layers:
 
 1. **Per-section correction** — after each section is generated, the 1b model trims or expands it to hit its individual target
 2. **Final iterative pass** — up to 3 attempts using the 3b model to bring the whole paper into the 92–108% tolerance band

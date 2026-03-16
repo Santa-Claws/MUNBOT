@@ -29,7 +29,7 @@ PAPERS_DIR       = os.path.join(os.path.dirname(__file__), "position-papers")
 CHARS_PER_EXAMPLE = 2000
 
 # 261 words/page calibrated from France corpus paper (783 body words / 3 pages)
-WORDS_PER_PAGE   = 261
+WORDS_PER_PAGE   = 230   # calibrated from actual docx rendering (805 words → 3.5 pages empirically)
 SECTION_WEIGHTS  = [0.28, 0.20, 0.52]   # Background / UN Involvement / Policy+Solutions
 
 # Per-section tolerance before triggering correction pass
