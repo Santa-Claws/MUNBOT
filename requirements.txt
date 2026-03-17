@@ -5,8 +5,10 @@ beautifulsoup4
 lxml
 python-docx
 ollama
-duckduckgo-search
+ddgs
 jinja2
 python-multipart
 aiofiles
 pypdf2
+matplotlib
+numpy

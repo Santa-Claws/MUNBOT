@@ -45,12 +45,21 @@ FINAL_TOL_HIGH   = 1.08
 # Few-shot example selection
 # ---------------------------------------------------------------------------
 
+_EXCLUDED_FILES = {"redmagic_logcat.txt", "text.txt", "Position Paper Guidelines.txt"}
+_MIN_PAPER_WORDS = 100  # exclude files too short to be real papers
+
+
 def _load_papers() -> list[tuple[str, str]]:
     papers = []
     for path in glob.glob(os.path.join(PAPERS_DIR, "*.txt")):
+        name = os.path.basename(path)
+        if name in _EXCLUDED_FILES:
+            continue
         try:
             with open(path, encoding="utf-8", errors="ignore") as f:
-                papers.append((os.path.basename(path), f.read()))
+                content = f.read()
+            if len(content.split()) >= _MIN_PAPER_WORDS:
+                papers.append((name, content))
         except Exception:
             pass
     return papers

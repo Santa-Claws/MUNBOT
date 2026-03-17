@@ -9,7 +9,7 @@ A web app that generates Model UN position papers using a local LLM (Ollama), re
 - **Local LLM** — runs entirely on your machine via Ollama (no API keys, no data sent to the cloud)
 - **Two-model architecture** — a fast generation model writes the content; a dedicated smaller model handles length correction
 - **Iterative word-count enforcement** — per-section correction, full-paper iterative passes, and a deterministic sentence trimmer as a hard fallback
-- **Accurate page lengths** — calibrated to 230 words/page from actual docx rendering (body only, Works Cited never counts); tested and passing for 1, 2, and 3 page outputs
+- **Accurate page lengths** — calibrated to 230 words/page from actual docx rendering (body only, Works Cited never counts); validated across all 5 page specs (1–5 pages) with mean errors within ±5%
 - **Proper `.docx` export** — Times New Roman 12pt, double-spaced, 1-inch margins, hanging indent on Works Cited
 
 ## Requirements
@@ -75,16 +75,32 @@ OLLAMA_BASE_URL  = "http://localhost:11434"
 
 Swap either model for any model you have pulled in Ollama. For deployment on better hardware, larger models (e.g. `llama3.1:8b`, `llama3.3:70b`) will produce higher quality output.
 
+## Calibration Results
+
+Word-count calibration was run across 25 tests (5 per page spec, 1–5 pages) using varied topics and countries. All 5 page specs converged to **WORDS_PER_PAGE = 230** on the first calibration round.
+
+| Page spec | Target words | Mean actual | Mean error |
+|-----------|-------------|-------------|------------|
+| 1 page    | 230         | 232         | +0.9%      |
+| 2 pages   | 460         | 451         | -2.0%      |
+| 3 pages   | 690         | 686         | -0.6%      |
+| 4 pages   | 920         | 904         | -1.7%      |
+| 5 pages   | 1150        | 1136        | -1.2%      |
+
+Graphs and raw data are in `calibration/`. The calibration script (`calibrate.py`) can be re-run any time with `python calibrate.py --stub-research`.
+
 ## File Structure
 
 ```
 MUNBOT/
 ├── position-papers/     # Drop .txt papers here — auto-used as style examples
+├── calibration/         # Calibration graphs and JSON results
 ├── main.py              # FastAPI app and SSE streaming
 ├── research.py          # DuckDuckGo search + scraping
 ├── llm.py               # Two-model generation, length enforcement
 ├── docx_writer.py       # .docx formatting
 ├── mun_guidelines.py    # MUN writing guide scraper (runs at startup)
+├── calibrate.py         # Word-count calibration test suite
 ├── templates/
 │   └── index.html       # Frontend
 └── generated/           # Output .docx files (gitignored)

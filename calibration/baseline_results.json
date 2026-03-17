@@ -1,0 +1,325 @@
+
+   /''''''''''''/
+  /''''''''''''/
+ /''''''/
+/''''''/
+\......\
+ \......\
+  \.............../
+   \............./[1G[8A[23C╭───────────╮ 
+[23C│  user    │ tmac
+[23C│ 󰇅 hname   │ NESTLECRUNCH
+[23C│ 󱦟 os age  | 131 days
+[23C│ 󰅐 uptime  │ 9 days, 21 hours, 14 mins
+[23C│  distro  │ CachyOS x86_64
+[23C│  kernel  │ Linux 6.19.5-3-cachyos
+[23C│  term    │ sshd
+[23C│  shell   │ fish 4.5.0
+[23C│ 󰍛 cpu     │ 12th Gen Intel(R) Core(TM) i9-12900K (16+8) @ 5.20 GHz
+[23C│ 󰉉 disk    │ 543.91 GiB / 915.53 GiB (59%) - ext4
+[23C│  memory  │ 17.44 GiB / 31.08 GiB (56%)
+[23C├───────────┤ 
+[23C│  colors  │ ● ● ● ● ● ● ● ●
+[23C╰───────────╯ 
+[
+  {
+    "pages": 1,
+    "topic": "The Sudan Refugee Crisis",
+    "country": "France",
+    "committee": "UNHCR",
+    "words_per_page": 230,
+    "target_words": 230,
+    "actual_words": 244,
+    "error_pct": 6.09,
+    "elapsed_s": 16.8,
+    "timestamp": "2026-03-17T03:17:13.755024"
+  },
+  {
+    "pages": 1,
+    "topic": "Climate Change and Small Island States",
+    "country": "Marshall Islands",
+    "committee": "UNEP",
+    "words_per_page": 230,
+    "target_words": 230,
+    "actual_words": 218,
+    "error_pct": -5.22,
+    "elapsed_s": 14.2,
+    "timestamp": "2026-03-17T03:17:27.969996"
+  },
+  {
+    "pages": 1,
+    "topic": "Nuclear Non-Proliferation",
+    "country": "Germany",
+    "committee": "First Committee",
+    "words_per_page": 230,
+    "target_words": 230,
+    "actual_words": 229,
+    "error_pct": -0.43,
+    "elapsed_s": 19.4,
+    "timestamp": "2026-03-17T03:17:47.380313"
+  },
+  {
+    "pages": 1,
+    "topic": "Cybersecurity and State-Sponsored Hacking",
+    "country": "Japan",
+    "committee": "DISEC",
+    "words_per_page": 230,
+    "target_words": 230,
+    "actual_words": 229,
+    "error_pct": -0.43,
+    "elapsed_s": 25.9,
+    "timestamp": "2026-03-17T03:18:13.232657"
+  },
+  {
+    "pages": 1,
+    "topic": "Human Trafficking and Forced Migration",
+    "country": "Brazil",
+    "committee": "Third Committee",
+    "words_per_page": 230,
+    "target_words": 230,
+    "actual_words": 241,
+    "error_pct": 4.78,
+    "elapsed_s": 24.1,
+    "timestamp": "2026-03-17T03:18:37.314441"
+  },
+  {
+    "pages": 2,
+    "topic": "The Syrian Civil War and Refugee Crisis",
+    "country": "Turkey",
+    "committee": "Security Council",
+    "words_per_page": 230,
+    "target_words": 460,
+    "actual_words": 440,
+    "error_pct": -4.35,
+    "elapsed_s": 8.5,
+    "timestamp": "2026-03-17T03:18:45.809519"
+  },
+  {
+    "pages": 2,
+    "topic": "Amazon Deforestation and Biodiversity",
+    "country": "Brazil",
+    "committee": "UNEP",
+    "words_per_page": 230,
+    "target_words": 460,
+    "actual_words": 448,
+    "error_pct": -2.61,
+    "elapsed_s": 5.3,
+    "timestamp": "2026-03-17T03:18:51.133685"
+  },
+  {
+    "pages": 2,
+    "topic": "North Korean Nuclear Program",
+    "country": "South Korea",
+    "committee": "Security Council",
+    "words_per_page": 230,
+    "target_words": 460,
+    "actual_words": 439,
+    "error_pct": -4.57,
+    "elapsed_s": 7.0,
+    "timestamp": "2026-03-17T03:18:58.135174"
+  },
+  {
+    "pages": 2,
+    "topic": "Internet Governance and Digital Rights",
+    "country": "Germany",
+    "committee": "ITU",
+    "words_per_page": 230,
+    "target_words": 460,
+    "actual_words": 454,
+    "error_pct": -1.3,
+    "elapsed_s": 8.6,
+    "timestamp": "2026-03-17T03:19:06.774164"
+  },
+  {
+    "pages": 2,
+    "topic": "Yemen Humanitarian Crisis",
+    "country": "Saudi Arabia",
+    "committee": "Security Council",
+    "words_per_page": 230,
+    "target_words": 460,
+    "actual_words": 473,
+    "error_pct": 2.83,
+    "elapsed_s": 8.2,
+    "timestamp": "2026-03-17T03:19:14.955291"
+  },
+  {
+    "pages": 3,
+    "topic": "The Taiwan Strait and Regional Stability",
+    "country": "United States",
+    "committee": "Security Council",
+    "words_per_page": 230,
+    "target_words": 690,
+    "actual_words": 702,
+    "error_pct": 1.74,
+    "elapsed_s": 6.3,
+    "timestamp": "2026-03-17T03:19:21.284937"
+  },
+  {
+    "pages": 3,
+    "topic": "Climate Finance for Developing Nations",
+    "country": "India",
+    "committee": "UNFCCC",
+    "words_per_page": 230,
+    "target_words": 690,
+    "actual_words": 675,
+    "error_pct": -2.17,
+    "elapsed_s": 9.2,
+    "timestamp": "2026-03-17T03:19:30.452618"
+  },
+  {
+    "pages": 3,
+    "topic": "Drug Trafficking and Organized Crime",
+    "country": "Mexico",
+    "committee": "UNODC",
+    "words_per_page": 230,
+    "target_words": 690,
+    "actual_words": 718,
+    "error_pct": 4.06,
+    "elapsed_s": 8.3,
+    "timestamp": "2026-03-17T03:19:38.753207"
+  },
+  {
+    "pages": 3,
+    "topic": "Arctic Sovereignty and Resource Rights",
+    "country": "Canada",
+    "committee": "UNCLOS",
+    "words_per_page": 230,
+    "target_words": 690,
+    "actual_words": 654,
+    "error_pct": -5.22,
+    "elapsed_s": 6.5,
+    "timestamp": "2026-03-17T03:19:45.293687"
+  },
+  {
+    "pages": 3,
+    "topic": "Palestinian Statehood and Self-Determination",
+    "country": "Egypt",
+    "committee": "General Assembly",
+    "words_per_page": 230,
+    "target_words": 690,
+    "actual_words": 679,
+    "error_pct": -1.59,
+    "elapsed_s": 9.3,
+    "timestamp": "2026-03-17T03:19:54.638484"
+  },
+  {
+    "pages": 4,
+    "topic": "Afghanistan Under Taliban Rule",
+    "country": "Pakistan",
+    "committee": "Security Council",
+    "words_per_page": 230,
+    "target_words": 920,
+    "actual_words": 959,
+    "error_pct": 4.24,
+    "elapsed_s": 12.3,
+    "timestamp": "2026-03-17T03:20:06.944166"
+  },
+  {
+    "pages": 4,
+    "topic": "Rohingya Genocide and Accountability",
+    "country": "Bangladesh",
+    "committee": "Human Rights Council",
+    "words_per_page": 230,
+    "target_words": 920,
+    "actual_words": 916,
+    "error_pct": -0.43,
+    "elapsed_s": 8.1,
+    "timestamp": "2026-03-17T03:20:15.034250"
+  },
+  {
+    "pages": 4,
+    "topic": "Water Scarcity and Transboundary Rivers",
+    "country": "Ethiopia",
+    "committee": "General Assembly",
+    "words_per_page": 230,
+    "target_words": 920,
+    "actual_words": 920,
+    "error_pct": 0.0,
+    "elapsed_s": 8.5,
+    "timestamp": "2026-03-17T03:20:23.511129"
+  },
+  {
+    "pages": 4,
+    "topic": "Autonomous Weapons and AI in Warfare",
+    "country": "United Kingdom",
+    "committee": "DISEC",
+    "words_per_page": 230,
+    "target_words": 920,
+    "actual_words": 868,
+    "error_pct": -5.65,
+    "elapsed_s": 7.9,
+    "timestamp": "2026-03-17T03:20:31.446958"
+  },
+  {
+    "pages": 4,
+    "topic": "Global Food Security and Famine Prevention",
+    "country": "Nigeria",
+    "committee": "FAO",
+    "words_per_page": 230,
+    "target_words": 920,
+    "actual_words": 855,
+    "error_pct": -7.07,
+    "elapsed_s": 8.1,
+    "timestamp": "2026-03-17T03:20:39.566479"
+  },
+  {
+    "pages": 5,
+    "topic": "The Iran Nuclear Deal and Regional Security",
+    "country": "Israel",
+    "committee": "Security Council",
+    "words_per_page": 230,
+    "target_words": 1150,
+    "actual_words": 1129,
+    "error_pct": -1.83,
+    "elapsed_s": 10.1,
+    "timestamp": "2026-03-17T03:20:49.649435"
+  },
+  {
+    "pages": 5,
+    "topic": "Debt Relief for Developing Nations",
+    "country": "Argentina",
+    "committee": "Second Committee",
+    "words_per_page": 230,
+    "target_words": 1150,
+    "actual_words": 1169,
+    "error_pct": 1.65,
+    "elapsed_s": 11.1,
+    "timestamp": "2026-03-17T03:21:00.702219"
+  },
+  {
+    "pages": 5,
+    "topic": "Deforestation and Indigenous Rights",
+    "country": "Indonesia",
+    "committee": "UNEP",
+    "words_per_page": 230,
+    "target_words": 1150,
+    "actual_words": 1125,
+    "error_pct": -2.17,
+    "elapsed_s": 12.2,
+    "timestamp": "2026-03-17T03:21:12.888655"
+  },
+  {
+    "pages": 5,
+    "topic": "NATO Expansion and European Security",
+    "country": "Poland",
+    "committee": "Security Council",
+    "words_per_page": 230,
+    "target_words": 1150,
+    "actual_words": 1162,
+    "error_pct": 1.04,
+    "elapsed_s": 20.6,
+    "timestamp": "2026-03-17T03:21:33.493977"
+  },
+  {
+    "pages": 5,
+    "topic": "Global Health Equity and Pandemic Preparedness",
+    "country": "Kenya",
+    "committee": "WHO",
+    "words_per_page": 230,
+    "target_words": 1150,
+    "actual_words": 1095,
+    "error_pct": -4.78,
+    "elapsed_s": 11.4,
+    "timestamp": "2026-03-17T03:21:44.937135"
+  }
+]
